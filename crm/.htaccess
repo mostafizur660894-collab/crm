@@ -41,7 +41,7 @@ AddDefaultCharset UTF-8
     # Route all /api/* requests to the PHP API router
     RewriteRule ^api/(.*)$ api/router.php [L,QSA]
 
-    # Everything else → React SPA index.html
-    RewriteRule ^ index.html [L]
+    # Everything else → PHP entry point
+    RewriteRule ^ index.php [L]
 </IfModule>
 
