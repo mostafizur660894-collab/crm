@@ -1,0 +1,43 @@
+# Bimano CRM — Apache 2.4 · Hostinger Business Plan
+# This file is copied into dist/ by Vite and deployed to public_html/crm/
+# Handles: React SPA routing + PHP API + security hardening
+
+Options -Indexes -MultiViews
+AddDefaultCharset UTF-8
+ServerSignature Off
+
+# ── Block sensitive internal files ────────────────────────────────────────────
+<FilesMatch "^(config|auth)\.php$">
+    Require all denied
+</FilesMatch>
+<FilesMatch "\.(sql|log|env|htpasswd)$">
+    Require all denied
+</FilesMatch>
+<FilesMatch "^\.user\.ini$">
+    Require all denied
+</FilesMatch>
+
+# ── Security headers ──────────────────────────────────────────────────────────
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options  "nosniff"
+    Header always set X-Frame-Options         "SAMEORIGIN"
+    Header always set X-XSS-Protection        "1; mode=block"
+    Header always set Referrer-Policy         "strict-origin-when-cross-origin"
+</IfModule>
+
+# ── Routing ───────────────────────────────────────────────────────────────────
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /crm/
+
+    # 1. Let real files and directories serve directly (PHP, assets, fonts, etc.)
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # 2. Route /crm/api/* requests to the PHP API router
+    RewriteRule ^api/(.*)$ api/router.php [L,QSA]
+
+    # 3. Everything else → React SPA (index.html handles client-side routing)
+    RewriteRule ^ index.html [L]
+</IfModule>

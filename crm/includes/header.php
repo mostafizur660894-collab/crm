@@ -14,12 +14,16 @@ $pageTitle = htmlspecialchars($pageTitle ?? 'Dashboard', ENT_QUOTES, 'UTF-8');
 $cacheBust = filemtime(__DIR__ . '/../assets/css/dashboard.css') ?: time();
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-base-path="<?= $basePath ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $pageTitle ?> — Bimano CRM</title>
     <link rel="stylesheet" href="<?= $basePath ?>/assets/css/dashboard.css?v=<?= $cacheBust ?>">
+    <script>
+    // Inject JWT for API calls — set once on page load
+    (function(){var t=<?= json_encode($_SESSION['jwt'] ?? '', JSON_HEX_TAG | JSON_HEX_AMP) ?>;if(t)sessionStorage.setItem('crm_token',t);})();
+    </script>
 </head>
 <body>
 
