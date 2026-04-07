@@ -6,7 +6,7 @@
  * Expects: $user (array), $activePage (string)
  */
 
-$basePath   = defined('CRM_BASE_PATH') ? CRM_BASE_PATH : '';
+$basePath   = defined('BASE_URL') ? rtrim(BASE_URL, '/') : (defined('CRM_BASE_PATH') ? CRM_BASE_PATH : '');
 $activeRole = $user['role'] ?? '';
 $activePage = $activePage ?? 'dashboard';
 
@@ -80,15 +80,16 @@ if ($activeRole === 'admin' || $activeRole === 'sub_admin') {
             <small><?= htmlspecialchars(ucfirst($activeRole), ENT_QUOTES, 'UTF-8') ?> Panel</small>
         </div>
     </div>
-    <nav class="sidebar-nav">
+    <nav class="sidebar-nav" role="navigation" aria-label="Main navigation">
         <?php foreach ($navItems as $item): ?>
             <?php if (isset($item['section'])): ?>
                 <div class="nav-section"><?= htmlspecialchars($item['section'], ENT_QUOTES, 'UTF-8') ?></div>
             <?php else: ?>
                 <a href="<?= htmlspecialchars($item['href'], ENT_QUOTES, 'UTF-8') ?>"
-                   class="nav-link<?= ($activePage === $item['key']) ? ' active' : '' ?>">
+                   class="nav-link<?= ($activePage === $item['key']) ? ' active' : '' ?>"
+                   <?= ($activePage === $item['key']) ? 'aria-current="page"' : '' ?>>
                     <?= $item['icon'] ?>
-                    <?= htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8') ?>
+                    <span><?= htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8') ?></span>
                 </a>
             <?php endif; ?>
         <?php endforeach; ?>

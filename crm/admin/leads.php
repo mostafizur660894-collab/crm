@@ -14,13 +14,13 @@ require_once __DIR__ . '/../includes/sidebar.php';
             <h2>Leads</h2>
             <p>Manage all leads — add, edit, convert, or delete.</p>
         </div>
-        <button onclick="addLead()" class="quick-action-btn" style="background:#1e3a5f;color:#fff;border-color:#1e3a5f;">
+        <button onclick="addLead()" class="btn-primary">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
             Add Lead
         </button>
     </div>
     <div class="card">
-        <div class="card-header" id="search-bar"></div>
+        <div class="card-header" id="filter-bar"></div>
         <div class="card-body no-pad" id="table-container">
             <div class="empty-state"><p>Loading...</p></div>
         </div>
@@ -29,27 +29,32 @@ require_once __DIR__ . '/../includes/sidebar.php';
 </main>
 
 <script>
-var currentPage = 1, currentSearch = '', loadedData = [];
+var currentPage = 1, currentSearch = '', currentStatus = '', loadedData = [], employees = [];
+
+// Pre-load employees for "Assigned To" dropdown
+CRM.api('GET', 'users?limit=200').then(function(res) {
+    employees = (res.data || []).map(function(u) { return { value: u.id, label: u.name + ' (' + u.role + ')' }; });
+});
 
 function loadLeads(page) {
     page = page || 1; currentPage = page;
     var qs = 'limit=25&page=' + page;
     if (currentSearch) qs += '&search=' + encodeURIComponent(currentSearch);
+    if (currentStatus) qs += '&status=' + encodeURIComponent(currentStatus);
     CRM.api('GET', 'leads?' + qs).then(function(res) {
         if (!res.success) { CRM.toast(res.message || 'Failed to load', 'error'); return; }
         loadedData = res.data || [];
         CRM.renderTable('table-container', [
-            { key: 'name', label: 'Name' },
+            { key: 'name', label: 'Name', render: function(v, row) { return '<strong>' + CRM.escapeHtml(v) + '</strong>'; } },
             { key: 'phone', label: 'Phone' },
-            { key: 'email', label: 'Email' },
-            { key: 'company', label: 'Company' },
+            { key: 'status', label: 'Status', badge: CRM.statusBadge },
             { key: 'source', label: 'Source' },
-            { key: 'status', label: 'Status', badge: CRM.statusBadge }
-        ], res.data, [
-            { label: 'Edit', handler: 'editLead' },
-            { label: 'Convert', handler: 'convertLead' },
-            { label: 'Delete', handler: 'deleteLead', danger: true }
-        ]);
+            { key: 'assigned_to_name', label: 'Assigned To', render: function(v) { return CRM.escapeHtml(v || 'Unassigned'); } }
+        ], res.data, function(row) {
+            return CRM.actionBtn('Edit', 'edit', 'editLead(' + row.id + ')')
+                + CRM.actionBtn('Convert', 'convert', 'convertLead(' + row.id + ')')
+                + CRM.actionBtn('Delete', 'delete', 'deleteLead(' + row.id + ')');
+        });
         CRM.renderPagination('pagination', res.pagination, 'loadLeads');
     });
 }
@@ -64,6 +69,7 @@ function addLead() {
             {value:'new',label:'New'},{value:'contacted',label:'Contacted'},{value:'qualified',label:'Qualified'},
             {value:'proposal',label:'Proposal'},{value:'negotiation',label:'Negotiation'},{value:'converted',label:'Converted'},{value:'lost',label:'Lost'}
         ]})
+        + CRM.field('Assigned To', 'assigned_to', '', 'select', {options:[{value:'',label:'Unassigned'}].concat(employees)})
         + CRM.field('Notes', 'notes', '', 'textarea', {placeholder:'Any notes...'});
     CRM.openModal('Add New Lead', html, function(data) {
         CRM.api('POST', 'leads', data).then(function(res) {
@@ -86,6 +92,7 @@ function editLead(id) {
             {value:'new',label:'New'},{value:'contacted',label:'Contacted'},{value:'qualified',label:'Qualified'},
             {value:'proposal',label:'Proposal'},{value:'negotiation',label:'Negotiation'},{value:'converted',label:'Converted'},{value:'lost',label:'Lost'}
         ]})
+        + CRM.field('Assigned To', 'assigned_to', lead.assigned_to || '', 'select', {options:[{value:'',label:'Unassigned'}].concat(employees)})
         + CRM.field('Notes', 'notes', lead.notes || '', 'textarea');
     CRM.openModal('Edit Lead', html, function(data) {
         data.id = id;
@@ -115,9 +122,29 @@ function deleteLead(id) {
     });
 }
 
-CRM.renderSearchBar('search-bar', 'Search leads by name, phone, email...', function(q) {
-    currentSearch = q; loadLeads(1);
+// Enhanced filter bar with status dropdown
+CRM.renderFilterBar('filter-bar', [
+    {
+        key: 'status', label: 'Status',
+        options: [
+            {value: '', label: 'All Statuses'},
+            {value: 'new', label: 'New'},
+            {value: 'contacted', label: 'Contacted'},
+            {value: 'qualified', label: 'Qualified'},
+            {value: 'proposal', label: 'Proposal'},
+            {value: 'negotiation', label: 'Negotiation'},
+            {value: 'converted', label: 'Converted'},
+            {value: 'lost', label: 'Lost'}
+        ]
+    }
+], function(vals) {
+    currentSearch = vals.search || '';
+    currentStatus = vals.status || '';
+    loadLeads(1);
 });
 loadLeads(1);
+
+// Load notifications
+if (CRM.loadNotifications) CRM.loadNotifications();
 </script>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

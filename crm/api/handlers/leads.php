@@ -3,11 +3,23 @@
  * /crm/api/leads
  * GET / POST / PUT / DELETE
  * POST /leads/:id/convert  → convert lead to client
+ * 
+ * Works with both PHP Sessions (admin panel) and JWT tokens (future)
  */
 
-$token   = bearer_token();
-$payload = $token ? jwt_decode($token) : null;
-if (!$payload) api_error('Unauthorized.', 401);
+// Support both PHP session auth and JWT tokens
+session_start();
+$is_authenticated = !empty($_SESSION['user_id']);
+
+// Also check for JWT Bearer token
+if (!$is_authenticated) {
+    $token = bearer_token();
+    $payload = $token ? jwt_decode($token) : null;
+    if (!$payload) api_error('Unauthorized.', 401);
+} else {
+    // Use session user ID as payload
+    $payload = ['user_id' => $_SESSION['user_id']];
+}
 
 $conn   = db_connect();
 $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');

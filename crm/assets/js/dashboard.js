@@ -1,6 +1,6 @@
 /**
  * Bimano CRM — Dashboard JavaScript
- * Sidebar toggle, mobile menu, and utility helpers.
+ * Sidebar toggle, mobile menu, notifications, and utility helpers.
  */
 
 (function () {
@@ -26,7 +26,22 @@
 
     // Close sidebar on ESC
     document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') closeSidebar();
+        if (e.key === 'Escape') {
+            closeSidebar();
+            // Also close notification dropdown
+            if (typeof CRM !== 'undefined' && CRM.closeNotifications) {
+                CRM.closeNotifications();
+            }
+        }
+    });
+
+    // ── Close notification dropdown on outside click ─────────────────────────
+    document.addEventListener('click', function (e) {
+        var bell = document.getElementById('notif-bell');
+        if (bell && !bell.contains(e.target)) {
+            var dd = document.getElementById('notif-dropdown');
+            if (dd) dd.classList.remove('open');
+        }
     });
 
     // ── Active sidebar link ──────────────────────────────────────────────────
@@ -57,5 +72,12 @@
 
         el.textContent = text;
     });
+
+    // ── Auto-load notifications on page ready ────────────────────────────────
+    if (typeof CRM !== 'undefined' && CRM.loadNotifications) {
+        CRM.loadNotifications();
+        // Refresh notifications every 60 seconds
+        setInterval(function () { CRM.loadNotifications(); }, 60000);
+    }
 
 })();

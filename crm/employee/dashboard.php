@@ -231,7 +231,4 @@ require_once __DIR__ . '/../includes/sidebar.php';
         </div>
     </div>
 </main>
-
-<script src="<?= CRM_BASE_PATH ?>/assets/js/dashboard.js"></script>
-</body>
-</html>
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>

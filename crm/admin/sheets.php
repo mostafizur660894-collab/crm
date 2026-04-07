@@ -11,7 +11,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
 <main class="main-content">
     <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
         <div><h2>Google Sheets</h2><p>Link and manage Google Sheets integrations.</p></div>
-        <button onclick="addSheet()" class="quick-action-btn" style="background:#1e3a5f;color:#fff;border-color:#1e3a5f;">
+        <button onclick="addSheet()" class="btn-primary">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
             Link Sheet
         </button>
@@ -26,7 +26,7 @@ function loadSheets() {
         if (!res.success) { CRM.toast(res.message||'Failed','error'); return; }
         CRM.renderTable('table-container', [
             { key:'sheet_name', label:'Name' },
-            { key:'sheet_id', label:'Sheet ID', render: function(v){ return '<code style="font-size:.78rem;background:#f1f5f9;padding:2px 6px;border-radius:4px;">' + CRM.escapeHtml(v||'') + '</code>'; } },
+            { key:'sheet_id', label:'Sheet ID', render: function(v){ return '<code style="font-size:.78rem;background:var(--bg-elevated);padding:2px 6px;border-radius:4px;color:var(--text);">'  + CRM.escapeHtml(v||'') + '</code>'; } },
             { key:'added_by_name', label:'Added By' },
             { key:'created_at', label:'Added', render: function(v){ return v ? CRM.escapeHtml(v.substring(0,10)) : '—'; } }
         ], res.data, [

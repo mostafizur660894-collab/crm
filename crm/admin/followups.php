@@ -11,7 +11,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
 <main class="main-content">
     <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
         <div><h2>Follow-ups</h2><p>Schedule and manage follow-ups with leads and clients.</p></div>
-        <button onclick="addFollowup()" class="quick-action-btn" style="background:#1e3a5f;color:#fff;border-color:#1e3a5f;">
+        <button onclick="addFollowup()" class="btn-primary">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
             Add Follow-up
         </button>
