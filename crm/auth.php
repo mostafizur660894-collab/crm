@@ -50,11 +50,15 @@ function require_auth(): void
  * Non-matching visitors are redirected to their own dashboard (browser) or
  * receive HTTP 403 JSON (API / XHR clients).
  */
-function require_role(string $role): void
+/**
+ * @param string|string[] $role  One role name or an array of allowed role names.
+ */
+function require_role(string|array $role): void
 {
     require_auth();
 
-    if ($_SESSION['role'] === $role) {
+    $allowed = is_array($role) ? $role : [$role];
+    if (in_array($_SESSION['role'], $allowed, true)) {
         return;
     }
 

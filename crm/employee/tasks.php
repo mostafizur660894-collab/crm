@@ -16,45 +16,45 @@ require_once __DIR__ . '/../includes/sidebar.php';
         <div id="pagination"></div>
     </div>
 </main>
-<div class="modal-overlay" id="modal"><div class="modal"><div class="modal-header"><h3 id="modal-title">Update Task</h3><button class="btn btn-sm" onclick="CRM.closeModal()">&times;</button></div><form id="modal-form" onsubmit="return updateTask(event)"><div class="modal-body" id="modal-body"></div><div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="CRM.closeModal()">Cancel</button><button type="submit" class="btn btn-primary">Save</button></div></form></div></div>
 <script>
-var currentPage = 1, currentSearch = '', editId = 0;
+var currentPage = 1, currentSearch = '', loadedRows = [];
+
 function loadTasks(page) {
     page = page || 1; currentPage = page;
     var qs = 'limit=25&page=' + page;
     if (currentSearch) qs += '&search=' + encodeURIComponent(currentSearch);
     CRM.api('GET','tasks?' + qs).then(function(res) {
         if (!res.success) { CRM.toast(res.message||'Failed','error'); return; }
+        loadedRows = res.data || [];
         CRM.renderTable('table-container', [
             { key:'title', label:'Title' },
             { key:'priority', label:'Priority', badge: CRM.priorityBadge },
             { key:'status', label:'Status', badge: CRM.statusBadge },
             { key:'due_date', label:'Due Date' }
-        ], res.data, function(row) {
-            return '<button class="btn btn-sm btn-primary" onclick="openEdit('+row.id+',\''+
-                (row.status||'pending').replace(/'/g,"\\'")+'\')">Update Status</button>';
-        });
+        ], loadedRows, [{ label: 'Update Status', handler: 'openEdit' }]);
         CRM.renderPagination('pagination', res.pagination, 'loadTasks');
     });
 }
-function openEdit(id, status) {
-    editId = id;
-    document.getElementById('modal-body').innerHTML =
-        CRM.field('status','Status','select',status,[
-            {v:'pending',l:'Pending'},{v:'in_progress',l:'In Progress'},
-            {v:'completed',l:'Completed'}
-        ]);
-    CRM.openModal('Update Task Status');
-}
-function updateTask(e) {
-    e.preventDefault();
-    var s = document.getElementById('field-status').value;
-    CRM.api('PUT','tasks',{ id: editId, status: s }).then(function(res){
-        if(res.success){ CRM.toast('Updated','success'); CRM.closeModal(); loadTasks(currentPage); }
-        else CRM.toast(res.message||'Failed','error');
+
+function openEdit(id) {
+    var task = loadedRows.find(function(t) { return t.id == id; });
+    if (!task) { CRM.toast('Task not found', 'error'); return; }
+    var html = CRM.field('Status', 'status', task.status || 'pending', 'select', {
+        options: [
+            { value: 'pending',     label: 'Pending' },
+            { value: 'in_progress', label: 'In Progress' },
+            { value: 'completed',   label: 'Completed' }
+        ]
     });
-    return false;
+    CRM.openModal('Update Task Status', html, function(data) {
+        CRM.api('PUT', 'tasks', { id: id, status: data.status }).then(function(res) {
+            CRM.closeModal();
+            if (res.success) { CRM.toast('Status updated', 'success'); loadTasks(currentPage); }
+            else CRM.toast(res.message || 'Error', 'error');
+        });
+    });
 }
+
 CRM.renderSearchBar('search-bar','Search tasks...',function(q){ currentSearch=q; loadTasks(1); });
 loadTasks(1);
 </script>

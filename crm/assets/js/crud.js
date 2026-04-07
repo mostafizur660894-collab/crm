@@ -130,7 +130,7 @@ var CRM = (function () {
             + '<label style="display:block;font-size:.8rem;font-weight:600;color:#374151;margin-bottom:.3rem;">' + escapeHtml(label) + '</label>';
 
         if (type === 'select' && opts.options) {
-            html += '<select name="' + escapeAttr(name) + '" style="width:100%;padding:.55rem .75rem;border:1.5px solid #d1d5db;border-radius:7px;font-size:.9rem;outline:none;"' + req + '>';
+            html += '<select id="field-' + escapeAttr(name) + '" name="' + escapeAttr(name) + '" style="width:100%;padding:.55rem .75rem;border:1.5px solid #d1d5db;border-radius:7px;font-size:.9rem;outline:none;"' + req + '>';
             opts.options.forEach(function (o) {
                 var val = typeof o === 'object' ? o.value : o;
                 var lbl = typeof o === 'object' ? o.label : o;
@@ -139,9 +139,9 @@ var CRM = (function () {
             });
             html += '</select>';
         } else if (type === 'textarea') {
-            html += '<textarea name="' + escapeAttr(name) + '" rows="3" style="width:100%;padding:.55rem .75rem;border:1.5px solid #d1d5db;border-radius:7px;font-size:.9rem;outline:none;resize:vertical;"' + req + ph + '>' + escapeHtml(value) + '</textarea>';
+            html += '<textarea id="field-' + escapeAttr(name) + '" name="' + escapeAttr(name) + '" rows="3" style="width:100%;padding:.55rem .75rem;border:1.5px solid #d1d5db;border-radius:7px;font-size:.9rem;outline:none;resize:vertical;"' + req + ph + '>' + escapeHtml(value) + '</textarea>';
         } else {
-            html += '<input type="' + type + '" name="' + escapeAttr(name) + '" value="' + escapeAttr(value) + '" style="width:100%;padding:.55rem .75rem;border:1.5px solid #d1d5db;border-radius:7px;font-size:.9rem;outline:none;"' + req + ph + '>';
+            html += '<input id="field-' + escapeAttr(name) + '" type="' + type + '" name="' + escapeAttr(name) + '" value="' + escapeAttr(value) + '" style="width:100%;padding:.55rem .75rem;border:1.5px solid #d1d5db;border-radius:7px;font-size:.9rem;outline:none;"' + req + ph + '>';
         }
 
         html += '</div>';
@@ -180,13 +180,17 @@ var CRM = (function () {
             });
             if (actions) {
                 html += '<td style="white-space:nowrap;">';
-                actions.forEach(function (act) {
-                    var cls = act.danger ? 'color:#ef4444;' : 'color:#3b82f6;';
-                    html += '<button onclick="' + escapeAttr(act.handler + '(' + row.id + ')') + '" '
-                        + 'style="background:none;border:none;cursor:pointer;font-size:.82rem;font-weight:500;padding:.2rem .5rem;' + cls + '"'
-                        + ' title="' + escapeAttr(act.label) + '">'
-                        + escapeHtml(act.label) + '</button>';
-                });
+                if (typeof actions === 'function') {
+                    html += actions(row);
+                } else {
+                    actions.forEach(function (act) {
+                        var cls = act.danger ? 'color:#ef4444;' : 'color:#3b82f6;';
+                        html += '<button onclick="' + escapeAttr(act.handler + '(' + row.id + ')') + '" '
+                            + 'style="background:none;border:none;cursor:pointer;font-size:.82rem;font-weight:500;padding:.2rem .5rem;' + cls + '"'
+                            + ' title="' + escapeAttr(act.label) + '">'
+                            + escapeHtml(act.label) + '</button>';
+                    });
+                }
                 html += '</td>';
             }
             html += '</tr>';

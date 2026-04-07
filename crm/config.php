@@ -32,6 +32,7 @@ define('DB_CHARSET', 'utf8mb4');
 // Site root  → bimanofinancials.com/crm/  → CRM_BASE_PATH = '/crm'
 // ══════════════════════════════════════════════════════════════════════════════
 define('CRM_BASE_PATH', '');       // subdomain root: crm.bimanofinancials.com
+define('BASE_URL', '/');            // absolute URL prefix for all links and asset paths
 
 // ── MySQLi connection ─────────────────────────────────────────────────────────
 function db_connect(): mysqli

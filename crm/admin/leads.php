@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/../auth.php';
-require_role('admin');
+require_role(['admin', 'sub_admin']);
 $user = current_user();
 $pageTitle = 'Leads';
 $activePage = 'leads';
@@ -29,7 +29,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
 </main>
 
 <script>
-var currentPage = 1, currentSearch = '';
+var currentPage = 1, currentSearch = '', loadedData = [];
 
 function loadLeads(page) {
     page = page || 1; currentPage = page;
@@ -37,6 +37,7 @@ function loadLeads(page) {
     if (currentSearch) qs += '&search=' + encodeURIComponent(currentSearch);
     CRM.api('GET', 'leads?' + qs).then(function(res) {
         if (!res.success) { CRM.toast(res.message || 'Failed to load', 'error'); return; }
+        loadedData = res.data || [];
         CRM.renderTable('table-container', [
             { key: 'name', label: 'Name' },
             { key: 'phone', label: 'Phone' },
@@ -74,26 +75,24 @@ function addLead() {
 }
 
 function editLead(id) {
-    CRM.api('GET', 'leads?limit=500').then(function(res) {
-        var lead = (res.data || []).find(function(l) { return l.id == id; });
-        if (!lead) { CRM.toast('Lead not found', 'error'); return; }
-        var html = CRM.field('Name', 'name', lead.name, 'text', {required:true})
-            + CRM.field('Phone', 'phone', lead.phone, 'tel', {required:true})
-            + CRM.field('Email', 'email', lead.email || '', 'email')
-            + CRM.field('Company', 'company', lead.company || '', 'text')
-            + CRM.field('Source', 'source', lead.source || '', 'select', {options:['','Facebook','Google','Referral','Website','Walk-in','Other']})
-            + CRM.field('Status', 'status', lead.status, 'select', {options:[
-                {value:'new',label:'New'},{value:'contacted',label:'Contacted'},{value:'qualified',label:'Qualified'},
-                {value:'proposal',label:'Proposal'},{value:'negotiation',label:'Negotiation'},{value:'converted',label:'Converted'},{value:'lost',label:'Lost'}
-            ]})
-            + CRM.field('Notes', 'notes', lead.notes || '', 'textarea');
-        CRM.openModal('Edit Lead', html, function(data) {
-            data.id = id;
-            CRM.api('PUT', 'leads', data).then(function(res) {
-                CRM.closeModal();
-                if (res.success) { CRM.toast('Lead updated'); loadLeads(currentPage); }
-                else CRM.toast(res.message || 'Error', 'error');
-            });
+    var lead = loadedData.find(function(l) { return l.id == id; });
+    if (!lead) { CRM.toast('Lead not found', 'error'); return; }
+    var html = CRM.field('Name', 'name', lead.name, 'text', {required:true})
+        + CRM.field('Phone', 'phone', lead.phone, 'tel', {required:true})
+        + CRM.field('Email', 'email', lead.email || '', 'email')
+        + CRM.field('Company', 'company', lead.company || '', 'text')
+        + CRM.field('Source', 'source', lead.source || '', 'select', {options:['','Facebook','Google','Referral','Website','Walk-in','Other']})
+        + CRM.field('Status', 'status', lead.status, 'select', {options:[
+            {value:'new',label:'New'},{value:'contacted',label:'Contacted'},{value:'qualified',label:'Qualified'},
+            {value:'proposal',label:'Proposal'},{value:'negotiation',label:'Negotiation'},{value:'converted',label:'Converted'},{value:'lost',label:'Lost'}
+        ]})
+        + CRM.field('Notes', 'notes', lead.notes || '', 'textarea');
+    CRM.openModal('Edit Lead', html, function(data) {
+        data.id = id;
+        CRM.api('PUT', 'leads', data).then(function(res) {
+            CRM.closeModal();
+            if (res.success) { CRM.toast('Lead updated'); loadLeads(currentPage); }
+            else CRM.toast(res.message || 'Error', 'error');
         });
     });
 }

@@ -10,7 +10,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../auth.php';
 
-require_role('admin');
+require_role(['admin', 'sub_admin']);
 
 $user      = current_user();
 $pageTitle = 'Admin Dashboard';
