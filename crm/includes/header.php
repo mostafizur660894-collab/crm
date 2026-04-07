@@ -11,6 +11,7 @@ $userName  = htmlspecialchars($user['name'] ?? 'User', ENT_QUOTES, 'UTF-8');
 $userRole  = htmlspecialchars($user['role'] ?? '',     ENT_QUOTES, 'UTF-8');
 $initials  = mb_strtoupper(mb_substr($userName, 0, 1));
 $pageTitle = htmlspecialchars($pageTitle ?? 'Dashboard', ENT_QUOTES, 'UTF-8');
+$cacheBust = filemtime(__DIR__ . '/../assets/css/dashboard.css') ?: time();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -18,7 +19,7 @@ $pageTitle = htmlspecialchars($pageTitle ?? 'Dashboard', ENT_QUOTES, 'UTF-8');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $pageTitle ?> — Bimano CRM</title>
-    <link rel="stylesheet" href="<?= $basePath ?>/assets/css/dashboard.css">
+    <link rel="stylesheet" href="<?= $basePath ?>/assets/css/dashboard.css?v=<?= $cacheBust ?>">
 </head>
 <body>
 

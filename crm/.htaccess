@@ -20,6 +20,13 @@ AddDefaultCharset UTF-8
 #     Require all denied
 # </FilesMatch>
 
+# ── MIME types (ensure CSS/JS served correctly) ───────────────────────────────
+<IfModule mod_mime.c>
+    AddType text/css .css
+    AddType application/javascript .js
+    AddType image/svg+xml .svg
+</IfModule>
+
 # ── Security headers ──────────────────────────────────────────────────────────
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options  "nosniff"
