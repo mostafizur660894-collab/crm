@@ -26,7 +26,8 @@ var CRM = (function () {
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
-            }
+            },
+            credentials: 'include'  // IMPORTANT: Send session cookies with every request
         };
         // Only add Authorization header if we have a token
         if (token) {
@@ -35,12 +36,15 @@ var CRM = (function () {
         if (body && method !== 'GET') {
             opts.body = JSON.stringify(body);
         }
-        var url = BASE + '/api/' + path;
+        var url = BASE + '/api/' + path + '.php';  // API files are .php
         return fetch(url, opts).then(function (res) {
             return res.json().then(function (data) {
                 data._status = res.status;
                 return data;
             });
+        }).catch(function(err) {
+            console.error('API Error:', err);
+            return { success: false, message: 'Network error' };
         });
     }
 

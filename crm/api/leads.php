@@ -1,438 +1,337 @@
 <?php
 /**
- * Bimano CRM — Standalone Leads API
+ * Bimano CRM — Leads API
  * File: /crm/api/leads.php
  * 
- * Method-based routing (GET, POST, PUT, DELETE)
- * Works with PHP sessions (admin panel) or JWT tokens
- * No external dependencies — pure PHP + MySQLi
+ * Simple session-based API for CRUD operations
+ * Uses PHP $_SESSION for authentication
  * 
- * Usage:
- *   GET  /api/leads.php           → Fetch all leads
- *   POST /api/leads.php           → Create new lead
- *   PUT  /api/leads.php?id=123    → Update lead
- *   DELETE /api/leads.php?id=123  → Delete lead
+ * Endpoints:
+ *   GET  /api/leads.php?page=1&limit=25&search=&status=
+ *   POST /api/leads.php
+ *   PUT  /api/leads.php?id=123
+ *   DELETE /api/leads.php?id=123
  */
 
 declare(strict_types=1);
 
-// Error handling (hide from browsers, enable logging)
-ini_set('display_errors', '0');
-ini_set('log_errors', '1');
-error_reporting(E_ALL);
+// Start session and check authentication
+session_start();
 
-// Always send JSON
+// Set JSON headers
 header('Content-Type: application/json; charset=utf-8');
-header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
-header('Pragma: no-cache');
+header('Cache-Control: no-store, no-cache, must-revalidate');
 
-// CORS headers
-header('Access-Control-Allow-Origin: *');
+// CORS allow credentials
+header('Access-Control-Allow-Origin: ' . ($_SERVER['HTTP_ORIGIN'] ?? '*'));
+header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
-// Handle preflight OPTIONS requests
+// Handle preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
+    http_response_code(204);
     exit;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Authentication: Support PHP Sessions or JWT Tokens
+// Authentication Check
 // ──────────────────────────────────────────────────────────────────────────────
 
-session_start();
-$is_authenticated = !empty($_SESSION['user_id']);
-
-// If not a PHP session, check for Bearer token (for future JWT support)
-if (!$is_authenticated && !empty($_SERVER['HTTP_AUTHORIZATION'])) {
-    // Bearer token detected — can be validated later if needed
-    $is_authenticated = true;
-}
-
-// Require authentication
-if (!$is_authenticated) {
+if (empty($_SESSION['user_id'])) {
     http_response_code(401);
-    echo json_encode(['success' => false, 'message' => 'Unauthorized. Please log in.']);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Unauthorized. Please log in.'
+    ]);
     exit;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Database Configuration & Setup
+// Database Connection
 // ──────────────────────────────────────────────────────────────────────────────
 
-define('DB_HOST', 'localhost');
-define('DB_PORT', 3306);
-define('DB_NAME', 'u710294496_crm_db');
-define('DB_USER', 'u710294496_mostafizur660');
-define('DB_PASS', 'Rakib@660#');
-define('DB_CHARSET', 'utf8mb4');
+require_once __DIR__ . '/../config.php';
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Helper Functions
-// ──────────────────────────────────────────────────────────────────────────────
-
-/**
- * Connect to MySQL database
- * Returns mysqli connection or exits with error response
- */
-function db_connect(): mysqli
-{
-    mysqli_report(MYSQLI_REPORT_OFF);
-    $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME, DB_PORT);
-
-    if ($conn->connect_errno) {
-        http_response_code(503);
-        echo json_encode([
-            'success' => false,
-            'message' => 'Database connection failed: Service temporarily unavailable.',
-            'error' => $conn->connect_error
-        ]);
-        exit;
-    }
-
-    if (!$conn->set_charset(DB_CHARSET)) {
-        http_response_code(503);
-        echo json_encode([
-            'success' => false,
-            'message' => 'Database charset error.',
-            'error' => $conn->error
-        ]);
-        exit;
-    }
-
-    return $conn;
-}
-
-/**
- * Send JSON response and exit
- */
-function json_response(array $data, int $status_code = 200): void
-{
-    http_response_code($status_code);
-    echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+$conn = db_connect();
+if (!$conn) {
+    http_response_code(503);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Database connection failed'
+    ]);
     exit;
 }
 
-/**
- * Send error response
- */
-function error_response(string $message, int $status_code = 400, ?string $error = null): void
-{
-    $data = ['success' => false, 'message' => $message];
-    if ($error) {
-        $data['error'] = $error;
-    }
-    json_response($data, $status_code);
-}
-
-/**
- * Get raw request body (JSON)
- */
-function get_request_body(): array
-{
-    $raw = file_get_contents('php://input');
-    if (!$raw) return [];
-    
-    $decoded = json_decode($raw, true);
-    return is_array($decoded) ? $decoded : [];
-}
-
 // ──────────────────────────────────────────────────────────────────────────────
-// Main API Logic
+// Main API Handler
 // ──────────────────────────────────────────────────────────────────────────────
+
+$method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 
 try {
-    $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
-    $conn = db_connect();
-
-    // ── GET: Fetch all leads (with ordering) ────────────────────────────────
+    // ── GET: Fetch all leads ──────────────────────────────────────────────────
     if ($method === 'GET') {
-        $limit = min((int)($_GET['limit'] ?? 50), 500);
-        $offset = max(0, (int)($_GET['offset'] ?? 0));
         $page = max(1, (int)($_GET['page'] ?? 1));
+        $limit = min((int)($_GET['limit'] ?? 25), 500);
         $offset = ($page - 1) * $limit;
         $search = trim($_GET['search'] ?? '');
         $status = trim($_GET['status'] ?? '');
-        
-        $where_conditions = [];
+
+        // Build WHERE clause
+        $where = ['1=1'];
         $params = [];
-        $param_types = '';
+        $types = '';
 
-        // Search by name, phone, or email
         if ($search !== '') {
-            $where_conditions[] = "(l.`name` LIKE ? OR l.`phone` LIKE ? OR l.`email` LIKE ?)";
-            $search_term = "%{$search}%";
-            $params[] = $search_term;
-            $params[] = $search_term;
-            $params[] = $search_term;
-            $param_types .= 'sss';
+            $where[] = "(l.name LIKE ? OR l.phone LIKE ? OR l.email LIKE ?)";
+            $s = "%{$search}%";
+            $params[] = $s;
+            $params[] = $s;
+            $params[] = $s;
+            $types .= 'sss';
         }
 
-        // Filter by status
         if ($status !== '') {
-            $where_conditions[] = "l.`status` = ?";
+            $where[] = "l.status = ?";
             $params[] = $status;
-            $param_types .= 's';
+            $types .= 's';
         }
 
-        $where_clause = count($where_conditions) > 0 
-            ? 'WHERE ' . implode(' AND ', $where_conditions)
-            : '';
+        $where_sql = implode(' AND ', $where);
 
         // Get total count
-        $count_query = "SELECT COUNT(*) as total FROM `leads` l {$where_clause}";
-        $count_stmt = $conn->prepare($count_query);
-        
-        if (!$count_stmt) {
-            error_response('Count query error', 500, $conn->error);
-        }
-
+        $count_sql = "SELECT COUNT(*) FROM leads l WHERE {$where_sql}";
+        $count_stmt = $conn->prepare($count_sql);
         if ($params) {
-            $count_stmt->bind_param($param_types, ...$params);
+            $count_stmt->bind_param($types, ...$params);
         }
-        
-        if (!$count_stmt->execute()) {
-            error_response('Count query execution failed', 500, $count_stmt->error);
-        }
-
-        $total = (int)$count_stmt->get_result()->fetch_assoc()['total'];
+        $count_stmt->execute();
+        $total = (int)$count_stmt->get_result()->fetch_row()[0];
         $count_stmt->close();
 
         // Get paginated data
         $params[] = $limit;
         $params[] = $offset;
-        $param_types .= 'ii';
+        $types .= 'ii';
 
-        $query = "
-            SELECT l.*
-            FROM `leads` l
-            {$where_clause}
-            ORDER BY l.`id` DESC
-            LIMIT ? OFFSET ?
-        ";
-
-        $stmt = $conn->prepare($query);
+        $sql = "SELECT l.* 
+                FROM leads l 
+                WHERE {$where_sql} 
+                ORDER BY l.id DESC 
+                LIMIT ? OFFSET ?";
         
-        if (!$stmt) {
-            error_response('Query preparation error', 500, $conn->error);
-        }
-
+        $stmt = $conn->prepare($sql);
         if ($params) {
-            $stmt->bind_param($param_types, ...$params);
+            $stmt->bind_param($types, ...$params);
         }
-
-        if (!$stmt->execute()) {
-            error_response('Query execution failed', 500, $stmt->error);
-        }
-
+        $stmt->execute();
         $result = $stmt->get_result();
-        $leads = $result->fetch_all(MYSQLI_ASSOC);
+        $data = $result->fetch_all(MYSQLI_ASSOC);
         $stmt->close();
-        $conn->close();
 
-        json_response([
+        http_response_code(200);
+        echo json_encode([
             'success' => true,
-            'data' => $leads,
+            'data' => $data,
             'pagination' => [
-                'total' => $total,
-                'limit' => $limit,
-                'offset' => $offset,
                 'page' => $page,
-                'count' => count($leads)
+                'limit' => $limit,
+                'total' => $total,
+                'pages' => ceil($total / $limit)
             ]
         ]);
+        exit;
     }
 
-    // ── POST: Create new lead ──────────────────────────────────────────────
+    // ── POST: Create lead ─────────────────────────────────────────────────────
     if ($method === 'POST') {
-        $body = get_request_body();
+        $input = json_decode(file_get_contents('php://input'), true) ?? [];
 
-        // Validate required fields
-        $name = trim($body['name'] ?? '');
-        $phone = trim($body['phone'] ?? '');
+        $name = trim($input['name'] ?? '');
+        $phone = trim($input['phone'] ?? '');
 
-        if ($name === '') {
-            error_response('Lead name is required', 400);
-        }
-        if ($phone === '') {
-            error_response('Phone number is required', 400);
-        }
-
-        // Optional fields
-        $email = $body['email'] ?? null;
-        $company = $body['company'] ?? null;
-        $source = $body['source'] ?? null;
-        $status = $body['status'] ?? 'new';
-        $notes = $body['notes'] ?? null;
-        $category_id = $body['category_id'] ?? null;
-        $branch_id = $body['branch_id'] ?? 1;
-        $assigned_to = $body['assigned_to'] ?? null;
-
-        // Insert lead
-        $stmt = $conn->prepare(
-            "INSERT INTO `leads` 
-            (`name`, `email`, `phone`, `company`, `source`, `status`, `notes`, `category_id`, `branch_id`, `assigned_to`, `created_at`)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())"
-        );
-
-        if (!$stmt) {
-            error_response('Query preparation error', 500, $conn->error);
+        if (!$name || !$phone) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Name and phone are required'
+            ]);
+            exit;
         }
 
+        $email = $input['email'] ?? null;
+        $company = $input['company'] ?? null;
+        $source = $input['source'] ?? null;
+        $status = $input['status'] ?? 'new';
+        $notes = $input['notes'] ?? null;
+        $category_id = $input['category_id'] ?? null;
+        $branch_id = $input['branch_id'] ?? 1;
+        $assigned_to = $input['assigned_to'] ?? null;
+
+        $sql = "INSERT INTO leads (name, email, phone, company, source, status, notes, category_id, branch_id, assigned_to, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+        
+        $stmt = $conn->prepare($sql);
         $stmt->bind_param(
             'sssssissii',
-            $name, $email, $phone, $company, $source, $status, $notes, 
+            $name, $email, $phone, $company, $source, $status, $notes,
             $category_id, $branch_id, $assigned_to
         );
 
         if (!$stmt->execute()) {
-            $conn->close();
-            // Check for duplicate key error
-            if (strpos($stmt->error, 'Duplicate') !== false) {
-                error_response('Phone number already exists', 409);
-            }
-            error_response('Failed to create lead', 500, $stmt->error);
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Failed to create lead: ' . $stmt->error
+            ]);
+            $stmt->close();
+            exit;
         }
 
-        $lead_id = $stmt->insert_id;
+        $id = $conn->insert_id;
         $stmt->close();
 
-        // Fetch the created lead
-        $stmt = $conn->prepare("SELECT * FROM `leads` WHERE `id` = ? LIMIT 1");
-        if ($stmt) {
-            $stmt->bind_param('i', $lead_id);
-            $stmt->execute();
-            $created_lead = $stmt->get_result()->fetch_assoc();
-            $stmt->close();
-        } else {
-            $created_lead = ['id' => $lead_id];
-        }
+        // Fetch created record
+        $stmt = $conn->prepare("SELECT * FROM leads WHERE id = ? LIMIT 1");
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        $created = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
 
-        $conn->close();
-
-        json_response([
+        http_response_code(201);
+        echo json_encode([
             'success' => true,
-            'message' => 'Lead created successfully',
-            'data' => $created_lead
-        ], 201);
+            'message' => 'Lead created',
+            'data' => $created
+        ]);
+        exit;
     }
 
-    // ── PUT: Update lead ───────────────────────────────────────────────────
+    // ── PUT: Update lead ──────────────────────────────────────────────────────
     if ($method === 'PUT') {
-        $body = get_request_body();
-        $lead_id = (int)($_GET['id'] ?? $body['id'] ?? 0);
-
-        if ($lead_id <= 0) {
-            error_response('Lead ID is required', 400);
+        $id = (int)($_GET['id'] ?? 0);
+        if (!$id) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'ID required']);
+            exit;
         }
 
-        // Build dynamic UPDATE query
+        $input = json_decode(file_get_contents('php://input'), true) ?? [];
+
         $updates = [];
         $params = [];
-        $param_types = '';
+        $types = '';
 
-        $allowed_fields = [
-            'name', 'email', 'phone', 'company', 'source', 'status', 'notes',
-            'category_id', 'branch_id', 'assigned_to'
-        ];
+        $fields = ['name', 'email', 'phone', 'company', 'source', 'status', 'notes'];
+        foreach ($fields as $f) {
+            if (isset($input[$f])) {
+                $updates[] = "{$f} = ?";
+                $params[] = $input[$f];
+                $types .= 's';
+            }
+        }
 
-        foreach ($allowed_fields as $field) {
-            if (array_key_exists($field, $body)) {
-                $updates[] = "`{$field}` = ?";
-                $params[] = $body[$field];
-                
-                // Determine parameter type
-                if (in_array($field, ['category_id', 'branch_id', 'assigned_to'])) {
-                    $param_types .= 'i';
-                } else {
-                    $param_types .= 's';
-                }
+        $int_fields = ['category_id', 'branch_id', 'assigned_to'];
+        foreach ($int_fields as $f) {
+            if (isset($input[$f])) {
+                $updates[] = "{$f} = ?";
+                $params[] = $input[$f];
+                $types .= 'i';
             }
         }
 
         if (empty($updates)) {
-            error_response('Nothing to update', 400);
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Nothing to update']);
+            exit;
         }
 
-        // Add ID to params
-        $params[] = $lead_id;
-        $param_types .= 'i';
+        $params[] = $id;
+        $types .= 'i';
 
-        $query = "UPDATE `leads` SET " . implode(', ', $updates) . " WHERE `id` = ?";
-        $stmt = $conn->prepare($query);
-
-        if (!$stmt) {
-            error_response('Query preparation error', 500, $conn->error);
-        }
-
-        $stmt->bind_param($param_types, ...$params);
+        $sql = "UPDATE leads SET " . implode(', ', $updates) . " WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, ...$params);
 
         if (!$stmt->execute()) {
-            error_response('Failed to update lead', 500, $stmt->error);
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Update failed: ' . $stmt->error
+            ]);
+            $stmt->close();
+            exit;
         }
-
         $stmt->close();
 
-        // Fetch updated lead
-        $stmt = $conn->prepare("SELECT * FROM `leads` WHERE `id` = ? LIMIT 1");
-        if ($stmt) {
-            $stmt->bind_param('i', $lead_id);
-            $stmt->execute();
-            $updated_lead = $stmt->get_result()->fetch_assoc();
-            $stmt->close();
-        } else {
-            $updated_lead = ['id' => $lead_id];
-        }
+        // Fetch updated record
+        $stmt = $conn->prepare("SELECT * FROM leads WHERE id = ? LIMIT 1");
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        $updated = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
 
-        $conn->close();
-
-        json_response([
+        http_response_code(200);
+        echo json_encode([
             'success' => true,
-            'message' => 'Lead updated successfully',
-            'data' => $updated_lead
+            'message' => 'Lead updated',
+            'data' => $updated
         ]);
+        exit;
     }
 
-    // ── DELETE: Delete lead ────────────────────────────────────────────────
+    // ── DELETE: Delete lead ───────────────────────────────────────────────────
     if ($method === 'DELETE') {
-        $body = get_request_body();
-        $lead_id = (int)($_GET['id'] ?? $body['id'] ?? 0);
-
-        if ($lead_id <= 0) {
-            error_response('Lead ID is required', 400);
+        $id = (int)($_GET['id'] ?? 0);
+        if (!$id) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'ID required']);
+            exit;
         }
 
-        $stmt = $conn->prepare("DELETE FROM `leads` WHERE `id` = ?");
-        
-        if (!$stmt) {
-            error_response('Query preparation error', 500, $conn->error);
-        }
-
-        $stmt->bind_param('i', $lead_id);
+        $sql = "DELETE FROM leads WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param('i', $id);
 
         if (!$stmt->execute()) {
-            error_response('Failed to delete lead', 500, $stmt->error);
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Delete failed: ' . $stmt->error
+            ]);
+            $stmt->close();
+            exit;
         }
 
         $affected = $stmt->affected_rows;
         $stmt->close();
-        $conn->close();
 
         if ($affected === 0) {
-            error_response('Lead not found', 404);
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Lead not found']);
+            exit;
         }
 
-        json_response([
+        http_response_code(200);
+        echo json_encode([
             'success' => true,
-            'message' => 'Lead deleted successfully'
+            'message' => 'Lead deleted'
         ]);
+        exit;
     }
 
     // Unsupported method
-    error_response('Method not allowed', 405);
+    http_response_code(405);
+    echo json_encode(['success' => false, 'message' => 'Method not allowed']);
 
 } catch (Exception $e) {
-    error_response('Server error', 500, $e->getMessage());
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Server error: ' . $e->getMessage()
+    ]);
+} finally {
+    $conn->close();
 }
 ?>
