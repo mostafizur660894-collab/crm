@@ -21,12 +21,18 @@ CREATE TABLE IF NOT EXISTS `users` (
     `name`       VARCHAR(100)     NOT NULL,
     `email`      VARCHAR(254)     NOT NULL,
     `password`   VARCHAR(255)     NOT NULL  COMMENT 'bcrypt hash only — no MD5/plain text',
+    `phone`      VARCHAR(20)      NULL,
     `role`       ENUM('admin','employee','client')
                                   NOT NULL DEFAULT 'employee',
+    `branch_id`  INT UNSIGNED     NULL,
+    `is_active`  TINYINT(1)       NOT NULL DEFAULT 1,
+    `points`     INT              NOT NULL DEFAULT 0,
     `created_at` TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uq_users_email` (`email`)
+    UNIQUE KEY `uq_users_email` (`email`),
+    KEY `idx_users_branch` (`branch_id`),
+    KEY `idx_users_role` (`role`)
 ) ENGINE=InnoDB
   DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_unicode_ci;
@@ -238,4 +244,20 @@ CREATE TABLE IF NOT EXISTS `notes` (
   DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_unicode_ci;
 
+-- ── Google Sheets Integration ─────────────────────────────────
 
+CREATE TABLE IF NOT EXISTS `sheets` (
+    `id`         INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+    `sheet_name` VARCHAR(255)     NOT NULL,
+    `sheet_id`   VARCHAR(255)     NOT NULL,
+    `sheet_url`  TEXT             NOT NULL,
+    `added_by`   INT UNSIGNED     NULL,
+    `created_at` TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uq_sheets_id` (`sheet_id`),
+    INDEX `idx_sheets_added_by` (`added_by`),
+    FOREIGN KEY (`added_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;

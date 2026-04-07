@@ -47,7 +47,7 @@ try {
 
         $sql = "SELECT n.id, n.client_id, n.content, n.created_at, u.name as created_by
                 FROM notes n
-                LEFT JOIN users u ON n.user_id = u.id
+                LEFT JOIN users u ON n.created_by = u.id
                 WHERE n.client_id = ?
                 ORDER BY n.created_at DESC";
         
@@ -74,7 +74,7 @@ try {
 
         $user_id = $_SESSION['user_id'];
 
-        $sql = "INSERT INTO notes (client_id, user_id, content, created_at)
+        $sql = "INSERT INTO notes (client_id, created_by, content, created_at)
                 VALUES (?, ?, ?, NOW())";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param('iis', $client_id, $user_id, $content);
@@ -91,7 +91,7 @@ try {
 
         $stmt = $conn->prepare("SELECT n.id, n.client_id, n.content, n.created_at, u.name as created_by
                                 FROM notes n
-                                LEFT JOIN users u ON n.user_id = u.id
+                                LEFT JOIN users u ON n.created_by = u.id
                                 WHERE n.id = ? LIMIT 1");
         $stmt->bind_param('i', $id);
         $stmt->execute();
@@ -128,7 +128,7 @@ try {
 
         $stmt = $conn->prepare("SELECT n.id, n.client_id, n.content, n.created_at, u.name as created_by
                                 FROM notes n
-                                LEFT JOIN users u ON n.user_id = u.id
+                                LEFT JOIN users u ON n.created_by = u.id
                                 WHERE n.id = ? LIMIT 1");
         $stmt->bind_param('i', $id);
         $stmt->execute();
