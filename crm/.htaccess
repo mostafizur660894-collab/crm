@@ -1,0 +1,47 @@
+# Bimano CRM — Apache 2.4 configuration
+# Hostinger Business Plan compatible
+
+Options -Indexes -MultiViews
+ServerSignature Off
+AddDefaultCharset UTF-8
+
+# ── Block direct HTTP access to internal PHP files ────────────────────────────
+<FilesMatch "^(config|auth)\.php$">
+    Require all denied
+</FilesMatch>
+
+# Block SQL, log, env, and hidden files
+<FilesMatch "(\.sql|\.log|\.env|\.ini|\.htpasswd|^\.)">
+    Require all denied
+</FilesMatch>
+
+# ── Uncomment the block below AFTER running setup.php ───────────────────────
+# <FilesMatch "^setup\.php$">
+#     Require all denied
+# </FilesMatch>
+
+# ── Security headers ──────────────────────────────────────────────────────────
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options  "nosniff"
+    Header always set X-Frame-Options         "SAMEORIGIN"
+    Header always set X-XSS-Protection        "1; mode=block"
+    Header always set Referrer-Policy         "strict-origin-when-cross-origin"
+</IfModule>
+
+# ── mod_rewrite ───────────────────────────────────────────────────────────────
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Let real files and directories pass through (assets, setup.php, etc.)
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Route all /api/* requests to the PHP API router
+    RewriteRule ^api/(.*)$ api/router.php [L,QSA]
+
+    # Everything else → React SPA index.html
+    RewriteRule ^ index.html [L]
+</IfModule>
+
