@@ -36,7 +36,12 @@ var CRM = (function () {
         if (body && method !== 'GET') {
             opts.body = JSON.stringify(body);
         }
-        var url = BASE + '/api/' + path + '.php';  // API files are .php
+        // Build URL correctly: /api/leads.php?page=1&limit=25
+        var pathParts = path.split('?');
+        var endpoint = pathParts[0];
+        var query = pathParts.length > 1 ? '?' + pathParts[1] : '';
+        var url = BASE + '/api/' + endpoint + '.php' + query;
+        
         return fetch(url, opts).then(function (res) {
             return res.json().then(function (data) {
                 data._status = res.status;
